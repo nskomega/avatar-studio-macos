@@ -1,0 +1,9 @@
+#!/bin/zsh
+# GUI-free entry point, including when invoked over SSH.
+STUDIO_ROOT="${0:A:h}"
+STUDIO_EXECUTABLE="$STUDIO_ROOT/build/Аватар Студия.app/Contents/MacOS/AvatarStudio"
+if [[ ! -x "$STUDIO_EXECUTABLE" ]]; then
+  print -u2 "Сначала соберите приложение: $STUDIO_ROOT/build.sh"
+  exit 127
+fi
+exec "$STUDIO_EXECUTABLE" "$@"

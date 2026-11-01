@@ -1,0 +1,17 @@
+{
+  "version": "0.5.0",
+  "scope": "allowlisted staged source files only; fresh Git history",
+  "files_scanned": 54,
+  "secret_and_personal_path_matches": 0,
+  "excluded": [
+    "personal media",
+    "profiles",
+    "jobs",
+    "SQLite",
+    "models",
+    "environments",
+    "binaries",
+    "parent Git history"
+  ],
+  "limits": "Pattern scanning is bounded; not a guarantee against all conceivable secrets. Dependencies and model artifacts are installed separately."
+}

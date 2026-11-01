@@ -1,0 +1,66 @@
+{
+  "version": "1.1.0",
+  "canvas": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24
+  },
+  "tokens": {
+    "safe_x": 36,
+    "safe_top": 90,
+    "safe_bottom": 220,
+    "caption_font_size": 32,
+    "caption_line_height": 42,
+    "caption_padding": 18,
+    "caption_radius": 18,
+    "headline_font_size": 40,
+    "logo_max_width": 125,
+    "logo_max_height": 90
+  },
+  "themes": {
+    "dark-tech": {
+      "name": "Тёмный техно",
+      "panel": "#071A2B",
+      "text": "#F2F5FA",
+      "accent": "#55E1EE",
+      "muted": "#B5F570",
+      "panel_alpha": 235
+    },
+    "light-editorial": {
+      "name": "Светлый редакционный",
+      "panel": "#F6F3EA",
+      "text": "#142033",
+      "accent": "#245BDB",
+      "muted": "#245BDB",
+      "panel_alpha": 245
+    },
+    "high-contrast": {
+      "name": "Контрастный",
+      "panel": "#090909",
+      "text": "#FFFFFF",
+      "accent": "#F5E642",
+      "muted": "#F5E642",
+      "panel_alpha": 245
+    }
+  },
+  "contexts": {
+    "medium_desk": {
+      "caption_y": 880,
+      "lower_shade_alpha": 0,
+      "automatic_face_crop": false,
+      "visible_props": [
+        "table",
+        "coffee mug",
+        "part of laptop"
+      ]
+    },
+    "graphic": {
+      "caption_y": 1006.6666667
+    }
+  },
+  "motion": {
+    "reading_focus_period_seconds": 1.0,
+    "underline_reveal_seconds": 0.45,
+    "edge_marker": true
+  }
+}
