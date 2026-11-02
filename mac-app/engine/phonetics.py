@@ -4,6 +4,14 @@ import re
 WORDS = re.compile(r'[А-Яа-яЁё]+(?:\u0301[А-Яа-яЁё]*)*')
 
 
+def expand_spoken_terms(text, terms):
+    """Expand product names for TTS only, before dictionary stress annotation."""
+    if not terms:return text
+    lookup={key.casefold():value for key,value in terms.items()}
+    pattern=re.compile(r'(?<!\w)(?:'+'|'.join(re.escape(key) for key in sorted(terms,key=len,reverse=True))+r')(?!\w)',re.IGNORECASE)
+    return pattern.sub(lambda match:lookup[match[0].casefold()],text)
+
+
 def apply_spelling_hints(text, hints):
     def replace(match):
         original=match[0]

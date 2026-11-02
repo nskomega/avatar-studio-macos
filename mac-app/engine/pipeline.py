@@ -5,6 +5,7 @@ import argparse, hashlib, json, math, os, re, shutil, subprocess, sys, time, sig
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 children = set()
+VERSION = (HERE.parent/"VERSION").read_text().strip()
 
 def run(args, **kwargs):
     print('RUN', args[0], flush=True)
@@ -42,7 +43,7 @@ def revision():
     try:
         return subprocess.check_output(['git','-C',ROOT,'rev-parse','HEAD'],text=True,stderr=subprocess.DEVNULL).strip()
     except (OSError,subprocess.CalledProcessError):
-        return 'source-archive-0.5.0'
+        return 'source-archive-'+VERSION
 
 
 def sha(path):
@@ -245,9 +246,9 @@ def main(config_path):
             config['script']=config['scenario_plan']['speech']
         dependencies(voice_only=config.get('voice_only', False)); sentences=validate(config)
         config.update(project=str(ROOT),job=str(job),sentences=sentences,engine={
-            'version':'0.5.0', 'voice_engine':'espeech', 'voice_speed':1.0,
+            'version':VERSION, 'voice_engine':'espeech', 'voice_speed':1.0,
             'git_commit':revision(),
-            'source_sha256':{name:sha(HERE/name) for name in ['pipeline.py','voice.py','voice-settings.json','phonetics.py','pronunciation.py','pronunciation-overrides.json','scenario.py','storyboard.py','drive_upload.py']}})
+            'source_sha256':{name:sha(HERE/name) for name in ['pipeline.py','voice.py','voice-settings.json','phonetics.py','hero_check.py','pronunciation.py','pronunciation-overrides.json','scenario.py','storyboard.py','drive_upload.py']}})
         # Snapshot source files so later edits cannot change an in-flight job.
         from PIL import Image, ImageOps
         photo=job/'portrait.png'
@@ -263,8 +264,8 @@ def main(config_path):
         import soundfile as sf
         import numpy as np
         sys.path.insert(0,str(ROOT/'local-avatar/reels'))
-        from timing import build_timeline, pauses
-        chunks=[]; sr=None
+        from timing import build_timeline, pauses, shorten_long_pauses
+        chunks=[]; sr=None; pause_edits=[]
         for i,text in enumerate(sentences):
             y,rate=sf.read(job/f'voice-{i:03}.wav')
             if y.ndim>1:y=y.mean(axis=1)
@@ -274,12 +275,16 @@ def main(config_path):
             active=[j for j in range(0,len(y),hop) if np.sqrt(np.mean(y[j:j+hop]**2))>10**(-35/20)]
             if not active:raise ValueError('Не обнаружена речь в реплике')
             y=y[max(0,active[0]-round(sr*.08)):min(len(y),active[-1]+hop+round(sr*.08))]
+            y,edits=shorten_long_pauses(y,sr)
+            pause_edits.extend(dict(utterance=i,**edit) for edit in edits)
             chunks.append(y)
         waveform,spans,timing=build_timeline(chunks,sr)
         captions=[dict(start=a,end=b,text=text) for (a,b),text in zip(spans,sentences)]
         cursor=len(waveform)/sr
         audit=pauses(waveform,sr,min_duration=.85)
-        (job/'timing-check.json').write_text(json.dumps(dict(**timing,pauses=audit),ensure_ascii=False,indent=2))
+        (job/'timing-check.json').write_text(json.dumps(dict(**timing,pauses=audit,pause_edits=pause_edits,
+            pause_edit_coordinates='seconds within edge-trimmed source utterance',
+            source_audio='voice-NNN.wav files preserved; speech speed unchanged'),ensure_ascii=False,indent=2))
         if audit:raise ValueError('В речи есть паузы от 0.85 с. Проверьте timing-check.json до генерации аватара.')
         if cursor>90:raise ValueError('Озвучка длиннее 90 секунд. Сократите текст; голос не ускоряется.')
         audio=job/'speech.wav'; sf.write(audio,waveform,sr)
@@ -290,7 +295,7 @@ def main(config_path):
         requested=plan.get('requested_duration')
         if requested and not requested[0]<=cursor<=requested[1]:warnings.append(f'Фактическая речь {cursor:.2f} с; запрос {requested[0]}–{requested[1]} с. Пустые интервалы не добавлены.')
         (job/'timeline.json').write_text(json.dumps(dict(scenes=scenes,captions=captions,duration=cursor,warnings=warnings),ensure_ascii=False,indent=2))
-        report=dict(duration=cursor,timing=timing,pauses=audit,warnings=warnings,
+        report=dict(duration=cursor,timing=timing,pauses=audit,pause_edits=pause_edits,warnings=warnings,
                     human_review='pending: voice likeness, lips, face and final edit must be reviewed',
                     caption_alignment='approximate within each spoken sentence; not ASR word alignment',
                     engine=config['engine'],timing_module_sha256=sha(Path(sys.modules['timing'].__file__)))
@@ -317,12 +322,25 @@ def main(config_path):
                         'Direct eye contact, subtle head movement and natural blinking. '
                         f'Actively speaking Russian with synchronized lip and jaw articulation: {spoken}. Stable camera.')
                     env=os.environ.copy();env.update(HF_HUB_OFFLINE='1',LTX2_VAE_DECODE_BUDGET_GB='4',PYTHONUNBUFFERED='1')
-                    run([ROOT/'local-avatar/ltx-2-mlx/.venv/bin/python',ROOT/'local-avatar/ltx/cooled_cli.py',
-                        'a2v','--distilled','--model',ROOT/'local-avatar/models/ltx-2.3-mlx-q4',
-                        '--gemma',ROOT/'local-avatar/models/gemma-3-12b-it-4bit','--prompt',prompt,
-                        '--audio',part,'--image',photo,'--width','512','--height','896','--frames','73',
-                        '--frame-rate','24','--seed',str(42+i),'--low-ram','--output',clip],env=env,start_new_session=True)
+                    from hero_check import check_clip
+                    attempts=[]
+                    for attempt in range(2):
+                        clip=job/f'clip-{i:03}-take-{attempt+1}.mp4'
+                        seed=42+i+1000*attempt
+                        run([ROOT/'local-avatar/ltx-2-mlx/.venv/bin/python',ROOT/'local-avatar/ltx/cooled_cli.py',
+                            'a2v','--distilled','--model',ROOT/'local-avatar/models/ltx-2.3-mlx-q4',
+                            '--gemma',ROOT/'local-avatar/models/gemma-3-12b-it-4bit','--prompt',prompt,
+                            '--audio',part,'--image',photo,'--width','512','--height','896','--frames','73',
+                            '--frame-rate','24','--seed',str(seed),'--low-ram','--output',clip],env=env,start_new_session=True)
+                        check=check_clip(clip,end-start)
+                        attempts.append(dict(clip=str(clip),seed=seed,**check))
+                        (job/f'hero-check-{i:03}.json').write_text(json.dumps(attempts,ensure_ascii=False,indent=2))
+                        if check['passed']:break
+                        status(job,'video',f'План {i}: слабое движение губ или не найдено лицо; дубль {attempt+1} отклонён.')
+                    else:
+                        raise ValueError(f'План {i}: оба дубля героя не прошли проверку движения губ. См. hero-check-{i:03}.json. Нужен новый дубль; монтаж остановлен.')
                     shot['clip']=str(clip)
+                    shot['mouth_motion_check']=check
                 shots.append(shot);start=end;number+=1
         (job/'shots.json').write_text(json.dumps(shots,ensure_ascii=False,indent=2))
         status(job,'export','Монтаж сцен, анимированная графика и субтитры')

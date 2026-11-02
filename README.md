@@ -1,6 +1,6 @@
 # Avatar Studio for macOS
 
-Native AppKit studio for local avatar Reels on Apple Silicon. Version **0.5.0**.
+Native AppKit studio for local avatar Reels on Apple Silicon. Version **0.6.0**.
 Russian GUI; ESpeech voice synthesis, speech-first timelines, LTX MLX avatar shots,
 animated explanatory graphics, subtitle export and optional rclone delivery.
 

@@ -1,17 +1,17 @@
 {
-  "version": "0.5.0",
-  "scope": "allowlisted staged source files only; fresh Git history",
-  "files_scanned": 54,
+  "version": "0.6.0",
+  "scope": "allowlisted committed source files only; independent public history",
+  "files_scanned": 58,
   "secret_and_personal_path_matches": 0,
+  "python_tests_passed": 26,
   "excluded": [
     "personal media",
     "profiles",
     "jobs",
-    "SQLite",
     "models",
     "environments",
     "binaries",
     "parent Git history"
   ],
-  "limits": "Pattern scanning is bounded; not a guarantee against all conceivable secrets. Dependencies and model artifacts are installed separately."
+  "limits": "Pattern scan only; no new ESpeech/LTX inference; lip synchronization requires human review."
 }

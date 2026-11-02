@@ -1,6 +1,24 @@
 """Speech-first timing: refuse to fill a requested runtime with empty scene slots."""
 import numpy as np
 
+def shorten_long_pauses(audio, sample_rate, min_duration=.85, keep_duration=.35):
+    """Shorten detected quiet intervals only; leave speech samples at original speed."""
+    if not 0 < keep_duration < min_duration:
+        raise ValueError('Сохраняемая пауза должна быть короче порога аудита')
+    edits=[]; pieces=[]; cursor=0
+    for pause in pauses(audio,sample_rate,min_duration=min_duration):
+        start=round(pause['start']*sample_rate)
+        end=round(pause['end']*sample_rate)
+        keep=round(keep_duration*sample_rate)
+        # Keep both edges of the quiet interval, away from speech transitions.
+        left=start+keep//2; right=end-(keep-keep//2)
+        pieces.append(audio[cursor:left]); cursor=right
+        edits.append(dict(**pause,removed_seconds=(right-left)/sample_rate,
+                          kept_seconds=keep/sample_rate))
+    if not edits:return audio,edits
+    pieces.append(audio[cursor:])
+    return np.concatenate(pieces),edits
+
 def build_timeline(chunks, sample_rate, target_seconds=None, max_gap=.12, max_tail=.85):
     if not chunks or any(len(y)==0 for y in chunks):raise ValueError('Нужны непустые реплики')
     total=sum(len(y) for y in chunks);count=len(chunks)

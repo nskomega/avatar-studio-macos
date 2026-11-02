@@ -23,11 +23,13 @@ def main():
     from f5_tts.model import DiT
     from thermal_guard import ThermalGuard
     from pronunciation import Lexicon
-    from phonetics import apply_spelling_hints
+    from phonetics import apply_spelling_hints, expand_spoken_terms
     settings = json.loads(Path(__file__).with_name('voice-settings.json').read_text())
     lexicon = Lexicon()
     try:
-        plan = [lexicon.annotate(apply_spelling_hints(t, settings['spelling_hints'])) for t in config['sentences']]
+        plan = [lexicon.annotate(apply_spelling_hints(expand_spoken_terms(t, settings.get('spoken_terms', {})), settings['spelling_hints'])) for t in config['sentences']]
+        for row, original in zip(plan, config['sentences']):
+            row['canonical_text'] = original
         reference = lexicon.annotate(config['reference_text'])
     finally:
         lexicon.close()
