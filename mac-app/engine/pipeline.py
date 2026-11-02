@@ -248,7 +248,7 @@ def main(config_path):
         config.update(project=str(ROOT),job=str(job),sentences=sentences,engine={
             'version':VERSION, 'voice_engine':'espeech', 'voice_speed':1.0,
             'git_commit':revision(),
-            'source_sha256':{name:sha(HERE/name) for name in ['pipeline.py','voice.py','voice-settings.json','phonetics.py','hero_check.py','pronunciation.py','pronunciation-overrides.json','scenario.py','storyboard.py','drive_upload.py']}})
+            'source_sha256':{name:sha(HERE/name) for name in ['pipeline.py','voice.py','voice-settings.json','phonetics.py','hero_check.py','hero_repair.py','pronunciation.py','pronunciation-overrides.json','scenario.py','storyboard.py','drive_upload.py']}})
         # Snapshot source files so later edits cannot change an in-flight job.
         from PIL import Image, ImageOps
         photo=job/'portrait.png'
@@ -323,22 +323,39 @@ def main(config_path):
                         f'Actively speaking Russian with synchronized lip and jaw articulation: {spoken}. Stable camera.')
                     env=os.environ.copy();env.update(HF_HUB_OFFLINE='1',LTX2_VAE_DECODE_BUDGET_GB='4',PYTHONUNBUFFERED='1')
                     from hero_check import check_clip
+                    from hero_repair import MAX_ATTEMPTS, failure_reasons, repair_prompt, LABELS
+                    previous_check=job/f'hero-check-{i:03}.json'
+                    if previous_check.exists():
+                        shutil.copy2(previous_check,job/f'hero-check-{i:03}-previous-{time.time_ns()}.json')
                     attempts=[]
-                    for attempt in range(2):
+                    repair_reasons=set()
+                    for attempt in range(MAX_ATTEMPTS):
                         clip=job/f'clip-{i:03}-take-{attempt+1}.mp4'
-                        seed=42+i+1000*attempt
+                        # Never overwrite earlier generated media, including a previous run.
+                        take=attempt+1
+                        while clip.exists():
+                            take+=1
+                            clip=job/f'clip-{i:03}-take-{take}.mp4'
+                        seed=42+i+1000*(take-1)
+                        effective_prompt=repair_prompt(prompt,repair_reasons)
                         run([ROOT/'local-avatar/ltx-2-mlx/.venv/bin/python',ROOT/'local-avatar/ltx/cooled_cli.py',
                             'a2v','--distilled','--model',ROOT/'local-avatar/models/ltx-2.3-mlx-q4',
-                            '--gemma',ROOT/'local-avatar/models/gemma-3-12b-it-4bit','--prompt',prompt,
+                            '--gemma',ROOT/'local-avatar/models/gemma-3-12b-it-4bit','--prompt',effective_prompt,
                             '--audio',part,'--image',photo,'--width','512','--height','896','--frames','73',
                             '--frame-rate','24','--seed',str(seed),'--low-ram','--output',clip],env=env,start_new_session=True)
                         check=check_clip(clip,end-start)
-                        attempts.append(dict(clip=str(clip),seed=seed,**check))
+                        reasons=failure_reasons(check)
+                        attempts.append(dict(clip=str(clip),seed=seed,prompt=effective_prompt,
+                            repairs_applied=sorted(repair_reasons),failure_reasons=reasons,**check))
                         (job/f'hero-check-{i:03}.json').write_text(json.dumps(attempts,ensure_ascii=False,indent=2))
                         if check['passed']:break
-                        status(job,'video',f'План {i}: слабое движение губ или не найдено лицо; дубль {attempt+1} отклонён.')
+                        repair_reasons.update(reasons)
+                        detail=', '.join(LABELS[key] for key in reasons)
+                        status(job,'video',f'План {i}: дубль {take} отклонён: {detail}. '
+                            + (f'Автоисправление: попытка {attempt+2}/{MAX_ATTEMPTS}.' if attempt+1<MAX_ATTEMPTS else 'Лимит автоисправления исчерпан.'),
+                            repair=dict(shot=i,attempt=attempt+1,limit=MAX_ATTEMPTS,reasons=reasons))
                     else:
-                        raise ValueError(f'План {i}: оба дубля героя не прошли проверку движения губ. См. hero-check-{i:03}.json. Нужен новый дубль; монтаж остановлен.')
+                        raise ValueError(f'План {i}: автоисправление героя исчерпало {MAX_ATTEMPTS} попытки. Причины: {detail}. См. hero-check-{i:03}.json. Нужен новый дубль; монтаж остановлен.')
                     shot['clip']=str(clip)
                     shot['mouth_motion_check']=check
                 shots.append(shot);start=end;number+=1

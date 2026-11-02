@@ -15,9 +15,9 @@ FILES=[
  'local-avatar/reels/timing.py','local-avatar/ltx/thermal_guard.py',
  'local-avatar/ltx/thermal_state.swift','local-avatar/ltx/cooled_cli.py',
 ]
-FILES += ['mac-app/engine/'+name for name in ['pipeline.py','voice.py','voice_qwen.py','voice-settings.json','phonetics.py','hero_check.py','pronunciation.py','pronunciation-overrides.json','scenario.py','storyboard.py','history.py','drive_upload.py','studio_cli.py','batch.py','doctor.py']]
+FILES += ['mac-app/engine/'+name for name in ['pipeline.py','voice.py','voice_qwen.py','voice-settings.json','phonetics.py','hero_check.py','hero_repair.py','pronunciation.py','pronunciation-overrides.json','scenario.py','storyboard.py','history.py','drive_upload.py','studio_cli.py','batch.py','doctor.py']]
 FILES += ['mac-app/tests/'+name for name in ['test_scenario.py','test_history.py','test_pipeline_flow.py','test_pronunciation.py','test_batch.py','check_storyboard.py','profile-smoke.sh','profile-checks.swift','fixtures/structured-scenario.txt']]
-FILES += ['mac-app/tests/test_pause_repair.py','mac-app/tests/test_hero_check.py']
+FILES += ['mac-app/tests/test_pause_repair.py','mac-app/tests/test_hero_check.py','mac-app/tests/test_hero_repair.py','mac-app/HERO_REPAIR.md']
 FILES += ['mac-app/examples/'+name for name in ['scenarios.json','scenarios.csv']]
 IGNORE='''# Private runtime/media; never commit these directories
 .DS_Store

@@ -1,9 +1,9 @@
 {
-  "version": "0.6.0",
+  "version": "0.6.1",
   "scope": "allowlisted committed source files only; independent public history",
-  "files_scanned": 58,
+  "files_scanned": 61,
   "secret_and_personal_path_matches": 0,
-  "python_tests_passed": 26,
+  "python_tests_passed": 29,
   "excluded": [
     "personal media",
     "profiles",
